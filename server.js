@@ -16,14 +16,14 @@ io.on('connection', socket => {
     console.log(`${socket.id} has been connected`)
     socket.emit('me', socket.id);
 
-    socket.on('make:offer', data => {
+    socket.on('action/offer', data => {
         const { offer, to } = data;
-        io.to(to).emit('incomming:offer', { offer, from: socket.id });
+        io.to(to).emit('incomming/offer', { offer, from: socket.id });
     });
 
-    socket.on('make:answer', data => {
+    socket.on('action/answer', data => {
         const { answer, to } = data;
-        io.to(to).emit('incomming:answer', { answer, from: socket.id });
+        io.to(to).emit('incomming/answer', { answer, from: socket.id });
     });
     socket.on("disconnect",()=>{
         console.log(`${socket.id} has been disconnected`)
