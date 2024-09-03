@@ -1,30 +1,59 @@
 import { useEffect, useRef, useState } from 'react'
 import './App.css'
 import socket from '../socket'
+import { connect } from 'socket.io-client'
 function App() {
   const peer=useRef(new RTCPeerConnection())
+  const [channel,setDataChannel]=useState(null)
   const [localId,setLocalId]=useState(null)
+  const [mssg,setMssg]=useState("")
   const remoteId=useRef(null)
+  // handling the data channel process
+  function handleDataChannel(channel){
+    setDataChannel(channel)
+    channel.addEventListener("message",(e)=>{
+      console.log(e.data)
+      console.log("new message has been arrived")
+    })
+    channel.addEventListener("open",()=>{
+      console.log("connection has been opened")
+    })
+    channel.addEventListener("close",()=>{
+      console.log("connection has been close")
+    })
+  }
   // handling the sending offer process
   async function sendOffer(){
     const offer=await peer.current.createOffer()
     await peer.current.setLocalDescription(offer)
     socket.emit("action/offer",{to:remoteId.current,offer})
+    const dataChannel=peer.current.createDataChannel("file-transfer")
+    setDataChannel(dataChannel)
+    dataChannel.addEventListener("message",(e)=>{
+      console.log(e.data)
+      console.log("new message has been received")
+    })
+    dataChannel.addEventListener("open",()=>{
+      console.log("have opened the channel")
+    })
+    dataChannel.addEventListener("close",()=>{
+      console.log("data channel is closing now")
+    })
+    
   }
+  //handling the connection 
   useEffect(()=>{
       socket.connect()
       socket.on("me",(id)=>setLocalId(id))
       socket.on("incomming/offer",async ({from,offer})=>{
-      console.log(peer.current.signalingState,0)
       await peer.current.setRemoteDescription(new RTCSessionDescription(offer))
       const answer=await peer.current.createAnswer()
       await peer.current.setLocalDescription(answer)
-      console.log(peer.current.signalingState,1)
       socket.emit("action/answer",({to:from,answer}))
+      peer.current.ondatachannel=(e)=>handleDataChannel(e.channel)
     })
     socket.on("incomming/answer",async({from,answer})=>{
       console.log(answer)
-      console.log(peer.current.signalingState,2)
       // now storing the incomming answer to the remote description
         await peer.current.setRemoteDescription(new RTCSessionDescription(answer))
     })
@@ -49,9 +78,17 @@ function App() {
        <input type="text" name="" id="remoteId" onChange={(e)=>remoteId.current=(e.target.value)}/>
        <button type="submit">connect</button>
     </form>
-    <form action=""className="file_sharing_form">
+    <form action=""className="file_sharing_form" style={{display:'none'}}>
       <input type="file" name="" id="file" />
       <button type="submit" id="send">submit</button>
+    </form>
+    <form action="" onSubmit={(e)=>{
+      e.preventDefault()
+      channel.send(mssg)
+      setMssg(mssg)
+    }}>
+      <input type="text" placeholder='send message' value={mssg} onChange={(e)=>setMssg(e.target.value)}/>
+      <button type="submit">send message</button>
     </form>
     </div>
     </>
